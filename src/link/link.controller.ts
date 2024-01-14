@@ -7,24 +7,57 @@ import {
   Param,
   Delete,
   Redirect,
+  HttpStatus,
+  Req,
+  HttpException,
+  Query,
 } from '@nestjs/common';
 import { LinkService } from './link.service';
 import { UpdateLinkDto } from './dto/update-link.dto';
 import { CreateLinkDto } from './dto/create-link.dto';
+import ShortLinkPipe from './pipes/shortLinkPipe.pipe';
+import { Request } from 'express';
 
 @Controller('link')
 export class LinkController {
   constructor(private readonly linkService: LinkService) {}
 
   @Post()
-  create(@Body() createLinkDto: CreateLinkDto) {
-    return this.linkService.create(createLinkDto.link);
+  async create(@Body(ShortLinkPipe) createLinkDto: CreateLinkDto) {
+    if (
+      createLinkDto.customLink &&
+      (await this.linkService.findByShortenedLink(createLinkDto.customLink))
+    ) {
+      throw new HttpException(
+        'Custom link taken. Try another one',
+        HttpStatus.CONFLICT,
+      );
+    }
+    return await this.linkService.create(createLinkDto);
+  }
+
+  @Get()
+  async findAll(@Query() query: { offset: number; limit: number }) {
+    return this.linkService.findAll(query.offset, query.limit);
   }
 
   @Get(':link')
   @Redirect('', 302)
-  async findOne(@Param('link') link: string) {
-    return { url: (await this.linkService.findOne(link)).originalLink };
+  async findByShortenedLink(@Param('link') link: string) {
+    const found = await this.linkService.findByShortenedLink(link);
+    if (!found.isActive()) {
+      throw new HttpException('Link has expired', HttpStatus.NOT_FOUND);
+    }
+    found.currentUsages++;
+    found.save();
+    return {
+      url: found.originalLink,
+    };
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: number) {
+    return this.linkService.findOne(id);
   }
 
   @Patch(':id')

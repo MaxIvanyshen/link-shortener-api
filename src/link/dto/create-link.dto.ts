@@ -1,3 +1,6 @@
 export class CreateLinkDto {
-  link: string;
+  customLink: string;
+  originalLink: string;
+  maxUsages: number;
+  activeUntil: Date;
 }
