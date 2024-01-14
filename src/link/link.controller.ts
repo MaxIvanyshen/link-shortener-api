@@ -45,6 +45,9 @@ export class LinkController {
   @Redirect('', 302)
   async findByShortenedLink(@Param('link') link: string) {
     const found = await this.linkService.findByShortenedLink(link);
+    if (!found) {
+      throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    }
     if (!found.isActive()) {
       throw new HttpException('Link has expired', HttpStatus.NOT_FOUND);
     }
